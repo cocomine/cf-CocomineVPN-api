@@ -7,4 +7,11 @@ dist
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
-bun.lockb
+bun.lockb### Example user template template
+### Example user template
+
+# IntelliJ project files
+.idea
+*.iml
+out
+gen
