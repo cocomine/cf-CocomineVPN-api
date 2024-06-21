@@ -1,7 +1,7 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "scripts": {
-    "dev": "wrangler dev src/index.ts",
+    "dev": "wrangler dev src/index.ts --env dev",
     "deploy": "wrangler deploy src/index.ts --minify"
   },
   "dependencies": {

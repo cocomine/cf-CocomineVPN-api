@@ -2,14 +2,16 @@ name = "vpn-api"
 compatibility_date = "2023-12-01"
 compatibility_flags = [ "nodejs_compat" ]
 
-vars = {ORIGINAL_API_HOST = "127.0.0.1:8088", NODE_ENV = "development"}
+vars = {ORIGINAL_API_HOST = "api.cocomine.cc", NODE_ENV="production"}
 kv_namespaces = [
   {binding = "KV", id = "3b8d36233874487c8531c680fa6ebc0e"}
 ]
 
-[env.production]
-vars = {ORIGINAL_API_HOSTNAME = "api.cocomine.cc"}
-
+[env.dev]
+vars = {ORIGINAL_API_HOST = "127.0.0.1:8088", NODE_ENV = "development"}
+kv_namespaces = [
+  {binding = "KV", id = "3b8d36233874487c8531c680fa6ebc0e"}
+]
 # [[r2_buckets]]
 # binding = "MY_BUCKET"
 # bucket_name = "my-bucket"

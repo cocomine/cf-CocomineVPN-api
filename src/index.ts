@@ -25,7 +25,7 @@ app.use(secureHeaders())
 /**
  * Websocket connection
  */
-app.get('/api/ws', async (c) => {
+app.get('/api/vpn/v2/ws', async (c) => {
     const {ORIGINAL_API_HOST, NODE_ENV} = env<Env>(c)
 
     // Check if the request is a websocket upgrade
@@ -42,11 +42,12 @@ app.get('/api/ws', async (c) => {
 
     // Create a new URL object from the request URL
     const url = new URL(c.req.url)
+    url.pathname = url.pathname.substring(4) // Remove the /api prefix
     url.host = ORIGINAL_API_HOST
-    url.protocol = NODE_ENV === 'development' ? 'ws:' : 'wss:'
+    //url.protocol = NODE_ENV === 'development' ? 'ws:' : 'wss:'
 
     // Connect to the original API
-    const websocket = new WebSocket(url.toString())
+    const websocket = await create_websocket(url.toString())
     const webSocketPair = new WebSocketPair();
     const [client, server] = Object.values(webSocketPair);
 
@@ -119,5 +120,28 @@ app.all('*', async (c) => {
         return c.json({error: e.message})
     }
 })
+
+async function create_websocket(url: string) {
+    // Make a fetch request including `Upgrade: websocket` header.
+    // The Workers Runtime will automatically handle other requirements
+    // of the WebSocket protocol, like the Sec-WebSocket-Key header.
+    let resp = await fetch(url, {
+        headers: {
+            Upgrade: 'websocket',
+        },
+    });
+
+    // If the WebSocket handshake completed successfully, then the
+    // response has a `webSocket` property.
+    let ws = resp.webSocket;
+    if (!ws) {
+        throw new Error("server didn't accept WebSocket");
+    }
+
+    // Call accept() to indicate that you'll be handling the socket here
+    // in JavaScript, as opposed to returning it on to a client.
+    ws.accept();
+    return ws;
+}
 
 export default app
