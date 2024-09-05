@@ -1,4 +1,5 @@
 {
+  "name": "cf-cocominevpn-api",
   "version": "1.0.1",
   "scripts": {
     "dev": "wrangler dev src/index.ts --env dev",
