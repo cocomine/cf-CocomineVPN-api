@@ -1,11 +1,11 @@
-import {Hono} from 'hono'
+import {Hono} from 'hono';
 import {env} from "hono/adapter";
 import {logger} from "hono/logger";
 import {secureHeaders} from "hono/secure-headers";
 
 type Env = {
     ORIGINAL_API_HOST: string;
-    KV: KVNamespace;
+    // KV: KVNamespace;
     NODE_ENV: string | undefined;
     WORKER_ACCESS_TOKEN: string;
 }
@@ -18,83 +18,114 @@ interface I_WS_TICKET_DATA {
     code: number
 }
 
-const app = new Hono()
-app.use(logger())
-app.use(secureHeaders())
+const app = new Hono();
+app.use(logger());
+app.use(secureHeaders());
 
 /**
  * Websocket connection
  */
 app.get('/api/vpn/v2/ws', async (c) => {
-    const {ORIGINAL_API_HOST, NODE_ENV} = env<Env>(c)
+    const {ORIGINAL_API_HOST, NODE_ENV} = env<Env>(c);
 
     // Check if the request is a websocket upgrade
     const upgradeHeader = c.req.header('upgrade');
     if (!upgradeHeader || upgradeHeader !== 'websocket') {
-        return new Response('Expected Upgrade: websocket', { status: 426 });
+        return new Response('Expected Upgrade: websocket', {status: 426});
     }
 
     // Check if the request has a ticket
-    if(c.req.query('ticket') === undefined) {
-        c.status(400)
-        return c.json({code: 400, message: 'No ticket found.'})
+    if (c.req.query('ticket') === undefined) {
+        c.status(400);
+        return c.json({code: 400, message: 'No ticket found.'});
     }
 
     // Create a new URL object from the request URL
-    const url = new URL(c.req.url)
-    url.pathname = url.pathname.substring(4) // Remove the /api prefix
-    url.host = ORIGINAL_API_HOST
+    const url = new URL(c.req.url);
+    url.pathname = url.pathname.substring(4); // Remove the /api prefix
+    url.host = ORIGINAL_API_HOST;
     //url.protocol = NODE_ENV === 'development' ? 'ws:' : 'wss:'
 
     // Connect to the original API
-    const websocket = await create_websocket(url.toString())
+    const websocket = await create_websocket(url.toString());
     const webSocketPair = new WebSocketPair();
     const [client, server] = Object.values(webSocketPair);
 
     server.accept();
     websocket.addEventListener('message', (e) => {
-        server.send(e.data)
-    })
+        server.send(e.data);
+    });
     server.addEventListener('message', (e) => {
-        websocket.send(e.data)
-    })
+        websocket.send(e.data);
+    });
 
     websocket.addEventListener('close', () => {
-        server.close()
-    })
+        server.close();
+    });
     server.addEventListener('close', () => {
-        websocket.close()
-    })
+        websocket.close();
+    });
 
     server.addEventListener('error', () => {
-        websocket.close()
+        websocket.close();
     });
     websocket.addEventListener('error', () => {
-        server.close()
-    })
+        server.close();
+    });
 
     return c.res = new Response(null, {
         status: 101,
         webSocket: client
-    })
-})
+    });
+});
+
+app.get('/api/userinfo', async (c) => {
+    const {ORIGINAL_API_HOST, NODE_ENV} = env<Env>(c);
+
+    //check has "cf-connecting-ip" header
+    if (NODE_ENV !== "development" && !c.req.raw.headers.has('cf-connecting-ip')) {
+        c.status(400);
+        return c.json({code: 400, message: 'No IP address found.'});
+    }
+
+    // Create a new URL object from the request URL
+    const url = new URL(c.req.url);
+    url.host = ORIGINAL_API_HOST; // Replace the hostname with the original API hostname
+    url.pathname = "/auth" + url.pathname.substring(4); // Remove the /api prefix
+
+    try {
+        // Fetch the original API
+        const response = await fetch(url.toString(), c.req.raw);
+
+        // Copy over the response
+        const modifiedResponse = new Response(response.body, response);
+
+        // Delete the set-cookie from the response so it doesn't override existing cookies
+        modifiedResponse.headers.delete("set-cookie");
+
+        return c.res = modifiedResponse;
+    } catch (e: any) {
+        c.status(500);
+        return c.json({error: e.message});
+    }
+});
 
 /**
  * Proxy all requests to the original API
  */
 app.all('*', async (c) => {
-    const { ORIGINAL_API_HOST, KV , NODE_ENV} = env<Env>(c)
+    const {ORIGINAL_API_HOST, NODE_ENV} = env<Env>(c);
 
     //check has "cf-connecting-ip" header
-    if(NODE_ENV !== "development" && !c.req.raw.headers.has('cf-connecting-ip')) {
-        c.status(400)
-        return c.json({code: 400, message: 'No IP address found.'})
+    if (NODE_ENV !== "development" && !c.req.raw.headers.has('cf-connecting-ip')) {
+        c.status(400);
+        return c.json({code: 400, message: 'No IP address found.'});
     }
 
     // Create a new URL object from the request URL
-    const url = new URL(c.req.url)
-    url.host = ORIGINAL_API_HOST // Replace the hostname with the original API hostname
-    url.pathname = url.pathname.substring(4) // Remove the /api prefix
+    const url = new URL(c.req.url);
+    url.host = ORIGINAL_API_HOST; // Replace the hostname with the original API hostname
+    url.pathname = url.pathname.substring(4); // Remove the /api prefix
 
     try {
         // Fetch the original API
@@ -112,14 +143,14 @@ app.all('*', async (c) => {
         const modifiedResponse = new Response(response.body, response);
 
         // Delete the set-cookie from the response so it doesn't override existing cookies
-        modifiedResponse.headers.delete("set-cookie")
+        modifiedResponse.headers.delete("set-cookie");
 
-        return c.res = modifiedResponse
+        return c.res = modifiedResponse;
     } catch (e: any) {
-        c.status(500)
-        return c.json({error: e.message})
+        c.status(500);
+        return c.json({error: e.message});
     }
-})
+});
 
 async function create_websocket(url: string) {
     // Make a fetch request including `Upgrade: websocket` header.
@@ -144,4 +175,4 @@ async function create_websocket(url: string) {
     return ws;
 }
 
-export default app
+export default app;
